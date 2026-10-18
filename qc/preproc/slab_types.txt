@@ -1,0 +1,27 @@
+volume 0: test grid: axial 16 mm at 30 %
+volume 1: test grid: axial 16 mm at 50 %
+volume 2: test grid: axial 16 mm at 70 %
+volume 3: test grid: axial 32 mm at 30 %
+volume 4: test grid: axial 32 mm at 50 %
+volume 5: test grid: axial 32 mm at 70 %
+volume 6: test grid: axial 48 mm at 30 %
+volume 7: test grid: axial 48 mm at 50 %
+volume 8: test grid: axial 48 mm at 70 %
+volume 9: test grid: coronal 16 mm at 30 %
+volume 10: test grid: coronal 16 mm at 50 %
+volume 11: test grid: coronal 16 mm at 70 %
+volume 12: test grid: coronal 32 mm at 30 %
+volume 13: test grid: coronal 32 mm at 50 %
+volume 14: test grid: coronal 32 mm at 70 %
+volume 15: test grid: coronal 48 mm at 30 %
+volume 16: test grid: coronal 48 mm at 50 %
+volume 17: test grid: coronal 48 mm at 70 %
+volume 18: training: axial 59 mm, tilt -14 / -9 / -10 deg
+volume 19: training: axial 30 mm, tilt -23 / 7 / -3 deg
+volume 20: training: coronal 23 mm, tilt 70 / 10 / 7 deg
+volume 21: training: coronal 60 mm, tilt 97 / -7 / 6 deg
+volume 22: training: coronal 32 mm, tilt 73 / -7 / 8 deg
+volume 23: training: coronal 60 mm, tilt 110 / -8 / -8 deg
+volume 24: training: coronal 37 mm, tilt 111 / 5 / 7 deg
+volume 25: training: coronal 36 mm, tilt 90 / -3 / 5 deg
+volume 26: training: axial 42 mm, tilt -2 / -2 / 4 deg

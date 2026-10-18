@@ -1,0 +1,15 @@
+subjects 300, runs 1200
+anchor QC passed: 1200 / 1200; BBR restart spread (mm): median 0.05, 95th pct 0.12, max 0.21
+gradient-nonlinearity residual, 95th pct per run (mm): median 0.39, 95th pct 1.21, max 2.06; > 1.0 mm (excluded): 106
+PE sign: data check agrees with the HCP convention in 1191 / 1200 runs
+field map, strongest 1 % per run (Hz): median 87.40, 95th pct 109.10, max 139.00
+scanner header vs anchor (mm): median 7.65, 95th pct 25.10, max 57.33
+field-map check < 0.9 (excluded): 6 runs
+
+split   subjects  runs  included runs  subjects with an included run
+train        210   840            770        209
+val           30   120            109         30
+test          60   240            209         59
+included runs per train/val subject: 4 runs: 198 subjects, 3 runs: 5 subjects, 2 runs: 36 subjects
+forward model, LR spin echoes (601 field maps): correlation with the real image, median 0.787 undistorted -> 0.978 simulated; lowest 0.961 (head motion <= 1 mm and 1 deg: lowest 0.961, 0 field maps moved more)
+forward model, RL spin echoes (601 field maps): correlation with the real image, median 0.785 undistorted -> 0.978 simulated; lowest 0.683 (head motion <= 1 mm and 1 deg: lowest 0.956, 9 field maps moved more)

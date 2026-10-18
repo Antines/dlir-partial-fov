@@ -1,0 +1,18 @@
+# Python environment of the repository. Also needed for preprocessing and baselines: FSL 6.0.7 and Docker images
+# freesurfer/synthstrip, afni/afni_make_build, freesurfer/synthmorph. The data loader alone needs numpy, scipy, nibabel.
+name: dlir
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - ants=2.6.5              # N4BiasFieldCorrection, ResampleImage, antsRegistration
+  - nibabel=5.4.2
+  - matplotlib=3.11.2
+  - pillow=12.3.0
+  - boto3=1.43.111          # HCP download
+  - pytest=9.1.1
+  - pip
+  - pip:
+      - antspyx==0.6.3
+      - numpy==2.3.5
+      - scipy==1.15.3
