@@ -43,6 +43,7 @@ checks the data, and runs the classical baselines. The best classical method on 
 │       ├── run_baselines.py                 classical and zero-shot baselines, scoring
 │       ├── run_testset.sh                   per subject: build the slabs, run the baselines
 │       └── summarize.py                     result tables and the baseline selection rule
+├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
 │   └── baselines/                           pilot_summary.txt, val_summary.txt
@@ -200,7 +201,9 @@ python preproc_qc/slab_types_figure.py <package_dir> 436239_rfMRI_REST1_LR ../qc
 The data package is `<prep_dir>` reduced to the files listed above plus `<val_dir>` as `test/`.
 
 ## Using the data for training
-Only `numpy`, `scipy` and `nibabel` are needed. With `scripts/` on the Python path:
+`notebooks/dl_data_loading.ipynb` walks through it: the runs, one training slab, a PyTorch `DataLoader` that
+generates slabs on the fly, the validation slabs and scoring. The loader itself needs only `numpy`, `scipy` and
+`nibabel`. With `scripts/` on the Python path:
 ```python
 import numpy as np
 from slabsim.dataset import usable_runs, Run
