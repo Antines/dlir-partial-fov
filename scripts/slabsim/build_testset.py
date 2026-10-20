@@ -40,6 +40,14 @@ def brain_slices(sbref, field, anchor, brain_mask, pe_axis, pe_sign, trt):
     return inside[0], inside[-1]
 
 
+def slab_axes(sbref_affine, pe_axis, orientation):
+    """Voxel-axis order of the cut volume (slabs are cut along its last axis) and the PE axis in that order.
+    The permutation is cyclic and flips no axis, so the PE sign is unchanged."""
+    cut = 2 if orientation == 'axial' else int(np.argmax(np.abs(sbref_affine[1, :3])))   # coronal: axis closest to world y
+    perm = [(cut + 1) % 3, (cut + 2) % 3, cut]                    # cyclic: keeps the handedness of the voxel grid
+    return perm, perm.index(pe_axis)
+
+
 if __name__ == '__main__':
     run_dir, anat_dir, out_dir = map(Path, sys.argv[1:4])
     grid = GRIDS[sys.argv[4] if len(sys.argv) > 4 else 'pilot']
@@ -56,10 +64,8 @@ if __name__ == '__main__':
         if len(built) == n_slabs:
             continue                                              # resume: same seeds would rebuild identical slabs
         rng = np.random.default_rng(seed if orientation == 'axial' else [seed, 1])
-        cut = 2 if orientation == 'axial' else int(np.argmax(np.abs(raw.affine[1, :3])))     # axis closest to world y
-        perm = [(cut + 1) % 3, (cut + 2) % 3, cut]                # cyclic: keeps the handedness of the voxel grid
+        perm, pe_axis = slab_axes(raw.affine, acq['pe_axis'], orientation)
         sbref = (raw.get_fdata().transpose(perm), raw.affine[:, perm + [3]])
-        pe_axis = perm.index(acq['pe_axis'])
         slice_mm = float(np.linalg.norm(sbref[1][:3, 2]))
         k_lo, k_hi = brain_slices(sbref, field, anchor, brain, pe_axis, acq['pe_sign'], acq['trt'])
         for thickness in grid['thickness_mm']:
@@ -77,7 +83,8 @@ if __name__ == '__main__':
                     init = np.linalg.norm(s['truth'] - voxel_centers(s['affine'], s['image'].shape), axis=-1)[ok]
                     params = {'orientation': orientation, 'thickness_mm': thickness, 'n_slices': n, 'position': position,
                               'k0': k0, 'center_t1_mm': s['truth'][ok].mean(0).round(1).tolist(), 'misalignment': level,
-                              'header_pose': pose.tolist(), 'run': str(run_dir), 'initial_error_mm': float(init.mean())}
+                              'header_pose': pose.tolist(), 'run': str(run_dir), 'initial_error_mm': float(init.mean()),
+                              'pe_axis': pe_axis, 'pe_sign': acq['pe_sign'], 'trt': acq['trt']}   # PE in the slab's grid
                     name = f't{thickness:02d}_p{int(position * 100):02d}_{level}{suffix}'
                     save_sample(s, out_dir / name, params)
                     print(name, s['image'].shape, f'initial error {init.mean():.2f} mm')

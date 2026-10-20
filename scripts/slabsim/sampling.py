@@ -47,7 +47,7 @@ def draw_params(rng, brain_center, brain_extent_mm):
     if rng.uniform() < RANGES['header_far_p']:
         d = rng.normal(size=3)
         header[:3, 3] += d / np.linalg.norm(d) * u('header_far_mm')
-    return {
+    params = {
         'orientation': 'coronal' if coronal else 'axial', 'center': center.tolist(), 'angles': angles,
         'fov': [u('fov_mm')] * 2, 'voxel': [inplane, inplane, u('slice_mm')], 'thickness': u('thickness_mm'),
         'pe_axis': int(rng.choice([0, 1], p=[0.5, 0.5] if coronal else [0.3, 0.7])),   # 1 = A-P (axial), S-I (coronal)
@@ -57,6 +57,8 @@ def draw_params(rng, brain_center, brain_extent_mm):
         'ramp_mm': u('ramp_mm'), 'bias': u('bias'), 'gamma': u('gamma'), 'snr': u('snr'),
         'shim_fraction': u('shim_fraction'), 'header_pose': header.tolist(),
     }
+    params['trt'] = params['distortion_s']        # same key as the real-distortion slabs: effective readout time (s)
+    return params
 
 
 def slab_shim(field, brain_mask, slab_points, fraction):
