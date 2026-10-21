@@ -12,7 +12,7 @@ checks the data, and runs the classical baselines. The best classical method on 
   Per subject: `T1w_MPR1`, the 4 resting-state runs (SBRef + spin-echo field-map pair each), the task SBRefs used as
   bridge runs, the scan CSV; `scripts/preprocessing/download_hcp.py` fetches exactly these.
 - **Preprocessed data:** `dlir_data.tar.gz` (13.8 GB) in the Google Drive folder
-  [DLIR_data](https://drive.google.com/drive/folders/1pny7BDfs8UJl5eWC7uaZxxDfNRF8Bka9) (access on request), with its
+  [DLIR_data](https://drive.google.com/drive/folders/1pny7BDfs8UJl5eWC7uaZxxDfNRF8Bka9), with its
   SHA-256 in `dlir_data.tar.gz.sha256`. Unpack with `tar -xzf dlir_data.tar.gz`.
 - **Subjects:** 300, drawn in seeded random order from the 1,113 subjects with complete raw data; split by subject into
   210 training, 30 validation, 60 test (`splits/`). The test subjects are not in the data package.
@@ -181,6 +181,20 @@ Median TRE over slabs; failure = rigid part off by > 2 mm or > 2 deg. Validation
   confirms the choice.
 - SynthMorph (zero-shot deep learning, pilot slabs): rigid 8.6 mm, joint 13.1 mm, affine 18.0 mm median, 98-99 %
   failures. On whole-brain EPI it reaches 1.0-1.6 mm, so it fails because of the partial field of view.
+
+Held-out test set (59 subjects, 128 slabs each = 7,552 slabs; `qc/baselines/test_summary.txt`).
+
+| Method | Median TRE, mm (all / axial / coronal) | Failure (all / axial / coronal) | Time per slab |
+|---|---|---|---|
+| start position (header) | 5.81 / 5.85 / 5.79 | 94 % / 93 % / 94 % | - |
+| affine oracle (best affine fit to the truth) | 1.20 / 0.98 / 1.40 | 0 % | - |
+| rigid oracle (best rigid fit to the truth) | 1.44 / 1.13 / 1.69 | 0 % | - |
+| **AFNI lpc+ZZ** (affine, 12 DOF) | **1.70 / 1.70 / 1.71** | **28 % / 28 % / 28 %** | 103 s |
+| BBR via a whole-brain EPI of another run | 1.96 / 1.59 / 2.17 | 35 % / 26 % / 44 % | < 1 s |
+| FSL epi_reg (BBR) | 2.08 / 1.57 / 2.50 | 43 % / 28 % / 57 % | 40 s |
+| FSL BBR from the header | 2.27 / 1.75 / 2.55 | 48 % / 40 % / 57 % | 36 s |
+| ANTs rigid, mutual information | 3.61 / 3.71 / 3.52 | 77 % / 76 % / 77 % | 2 s |
+| SynthMorph rigid | 31.8 / 37.1 / 27.0 | 99 % / 99 % / 100 % | 16 s |
 
 ## Reproduce
 Environment: `conda env create -f environment.yml`, FSL 6.0.7, Docker images `freesurfer/synthstrip`,
