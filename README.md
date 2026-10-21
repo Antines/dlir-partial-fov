@@ -2,8 +2,8 @@
 
 Deep-learning registration (DLIR) of a partial-field-of-view EPI slab to the same subject's T1, including the EPI's
 susceptibility distortion. This repository preprocesses raw HCP scans, simulates slabs with exact ground truth,
-checks the data, and runs the classical baselines. The best classical method on our validation slabs is AFNI
-`align_epi_anat.py` (lpc+ZZ): median error 1.55 mm, 14 % failures.
+checks the data, and runs the classical baselines. The best classical method on the held-out test slabs is AFNI
+`align_epi_anat.py` (lpc+ZZ): median error 1.70 mm, 28 % failures.
 
 ## Data
 
@@ -46,7 +46,7 @@ checks the data, and runs the classical baselines. The best classical method on 
 ├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
-│   └── baselines/                           pilot_summary.txt, val_summary.txt
+│   └── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
 └── tests/                                   unit tests: physics, inversion, transform conventions
 ```
 
@@ -160,29 +160,8 @@ From `qc/preproc/qc_summary.txt`; one row per run in `qc/preproc/qc_runs.csv`.
 | Included runs | training 770 (209 of 210 subjects), validation 109 (30), test 209 (59) |
 
 ## Baselines
-Median TRE over slabs; failure = rigid part off by > 2 mm or > 2 deg. Validation slabs (`test/`, 1,080 slabs,
-30 subjects; `qc/baselines/val_summary.txt`):
-
-| Method | Median TRE, mm (all / axial / coronal) | Failure (all / axial / coronal) | Time per slab |
-|---|---|---|---|
-| start position (header) | 6.09 / 6.15 / 5.72 | 88 % / 88 % / 87 % | - |
-| affine oracle (best affine fit to the truth) | 1.21 / 1.14 / 1.29 | 0 % | - |
-| rigid oracle (best rigid fit to the truth) | 1.54 / 1.22 / 1.70 | 0 % | - |
-| **AFNI lpc+ZZ** (affine, 12 DOF) | **1.55 / 1.58 / 1.50** | **14 % / 11 % / 17 %** | 109 s |
-| FSL epi_reg (BBR) | 1.98 / 1.46 / 2.30 | 33 % / 19 % / 46 % | 40 s |
-| BBR via a whole-brain EPI of another run | 2.06 / 1.87 / 2.13 | 26 % / 22 % / 31 % | < 1 s |
-| FSL BBR from the header | 2.16 / 1.70 / 2.30 | 37 % / 30 % / 44 % | 37 s |
-| ANTs rigid, mutual information | 3.38 / 4.00 / 3.11 | 75 % / 76 % / 74 % | 2 s |
-
-- The oracles are floors: what remains after the best rigid or affine fit is distortion, largest in inferior axial
-  and anterior coronal slabs (about 2-2.5 mm), near the sinuses.
-- AFNI was chosen on a pilot (10 validation subjects, 180 axial slabs; `qc/baselines/pilot_summary.txt`): no method
-  reached <= 10 % failures, so the lowest failure rate decided (AFNI 9 %, 1.52 mm). The 30-subject validation set
-  confirms the choice.
-- SynthMorph (zero-shot deep learning, pilot slabs): rigid 8.6 mm, joint 13.1 mm, affine 18.0 mm median, 98-99 %
-  failures. On whole-brain EPI it reaches 1.0-1.6 mm, so it fails because of the partial field of view.
-
-Held-out test set (59 subjects, 128 slabs each = 7,552 slabs; `qc/baselines/test_summary.txt`).
+Held-out test set (59 subjects, 128 slabs each = 7,552 slabs; `qc/baselines/test_summary.txt`). Median TRE over
+slabs; failure = rigid part off by > 2 mm or > 2 deg.
 
 | Method | Median TRE, mm (all / axial / coronal) | Failure (all / axial / coronal) | Time per slab |
 |---|---|---|---|
