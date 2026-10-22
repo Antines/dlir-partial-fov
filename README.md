@@ -5,6 +5,9 @@ susceptibility distortion. This repository preprocesses raw HCP scans, simulates
 checks the data, and runs the classical baselines. The best classical method on the held-out test slabs is AFNI
 `align_epi_anat.py` (lpc+ZZ): median error 1.70 mm, 28 % failures.
 
+**Experiment tracking, deformable stage:** W&B project
+[dlir-deformable](https://wandb.ai/WANDB_ENTITY/dlir-deformable) (see [Deformable stage](#deformable-stage)).
+
 ## Data
 
 - **Raw data:** [HCP Young Adult](https://www.humanconnectome.org/study/hcp-young-adult), S1200 release, unprocessed 3T
@@ -39,15 +42,23 @@ checks the data, and runs the classical baselines. The best classical method on 
 │   │   ├── qc_overlays.py                   visual QC sheets: T1 white-matter outline over the aligned EPI
 │   │   ├── qc_summary.py                    QC table and statistics
 │   │   └── slab_types_figure.py             figure of the slab types
-│   └── baselines/
-│       ├── run_baselines.py                 classical and zero-shot baselines, scoring
-│       ├── run_testset.sh                   per subject: build the slabs, run the baselines
-│       └── summarize.py                     result tables and the baseline selection rule
+│   ├── baselines/
+│   │   ├── run_baselines.py                 classical and zero-shot baselines, scoring
+│   │   ├── run_testset.sh                   per subject: build the slabs, run the baselines
+│   │   └── summarize.py                     result tables and the baseline selection rule
+│   └── deformable/                          deformable stage (DL): shift of every slab voxel along PE
+│       ├── data.py, model.py, losses.py     training / validation slabs, network, error measure and loss terms
+│       ├── train.py, evaluate.py            train and score one experiment; score a trained model on any slabs
+│       ├── analysis.py                      MI landscape; sensitivity to rigid errors
+│       ├── configs/                         one YAML per experiment: 00_final ... 12_rigid_noise
+│       ├── run_all.sh                       all experiments, then the analyses
+│       ├── demo.ipynb                       the final model on one validation slab
+│       └── requirements.txt                 torch, pyyaml, wandb
 ├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
 │   └── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
-└── tests/                                   unit tests: physics, inversion, transform conventions
+└── tests/                                   unit tests: physics, inversion, transform conventions, deformable stage
 ```
 
 ## Preprocessed data tree
@@ -212,3 +223,60 @@ image, affine, truth, mask = load_sample('dlir_data/test/436239_rfMRI_REST1_LR/t
 A method's error on a slab (TRE) is the mean distance between its estimated and the true T1 position over
 `eval_mask`; it succeeds if TRE < 2 mm. A model is scored like the baselines by adding it to `METHODS` in
 `scripts/baselines/run_baselines.py` (returning a 4 x 4 transform or a T1 position per voxel).
+
+## Deformable stage
+Code: `scripts/deformable/`. Experiment tracking: W&B project
+[dlir-deformable](https://wandb.ai/WANDB_ENTITY/dlir-deformable): every experiment below with its training curves,
+validation summary, per-slab table and weights (artifact `<config>-model`).
+
+**Task.** The rigid stage gives a transform M from the slab's header H to the T1. Each slab voxel is then still
+displaced along the phase-encoding (PE) axis by the susceptibility distortion. The network predicts this shift u for
+every voxel; the T1 position of slab voxel v is `M @ H @ (v + u(v))`. With the exact M this equals the truth.
+
+**Model** (`model.py`, 0.29 M parameters). Input: the slab and the T1 resampled onto the slab grid through M, each
+divided by its 99th percentile, flipped / transposed so that PE is always the same tensor axis with the same sign
+(canonical orientation). A 3D U-Net (VoxelMorph-style, encoder 16-32-32-32) outputs one velocity value per voxel along
+PE; scaling and squaring (7 steps) turns it into a smooth shift without folds, which is mapped back to the slab's
+orientation. About 5 ms per slab on an RTX 5080 (network and scaling and squaring; the T1 resampling is extra).
+
+**Training** (`train.py`). Slabs are simulated on the fly by `slabsim` from 199 training subjects; 10 further training
+subjects are held out to choose the checkpoint. One slab per step, Adam (learning rate 3e-4), gradient norm clipped at
+5. Loss: mean squared distance (mm^2) between the predicted and the true T1 position over the scored voxels + 0.1 x the
+mean squared difference of the predicted field between neighbouring voxels.
+
+**Evaluation** (`evaluate.py`). TRE of a slab = mean distance between the predicted and the true T1 position over
+`eval_mask`; median over the 1,080 validation slabs. Each model is scored with the exact rigid transform (the
+deformable stage alone) and, given `--rigid`, with the rigid model's transform of every slab.
+
+**Experiments** (`configs/`, one YAML per experiment, one seed each; differences from `00_final`):
+
+| Config | Differs from `00_final` | Steps |
+|---|---|---|
+| `00_final` | final model (as above) | 20k |
+| `01_loss_mi_smooth1` | loss: mutual information between the slab and the shifted T1, smoothness weight 1 | 6k |
+| `02_loss_mi_smooth100` | loss: mutual information, smoothness weight 100 | 6k |
+| `03_loss_sqdist_plus_mi` | loss: squared distance + mutual information | 12k |
+| `04_loss_l1` | loss: mean distance (L1) instead of the squared distance | 12k |
+| `05_output_3d` | output: a free 3D shift instead of one shift along PE | 20k |
+| `06_output_no_canonical` | input: slab in its own orientation, PE axis and sign as two extra input channels | 12k |
+| `07_output_direct_shift` | output: the shift itself, without velocity field and scaling and squaring | 12k |
+| `08_smooth_0`, `09_smooth_1` | smoothness weight 0 / 1 instead of 0.1 | 12k |
+| `10_unet_half`, `11_unet_double` | U-Net channels x0.5 / x2 (0.07 M / 1.16 M parameters) | 12k |
+| `12_rigid_noise` | in training, the T1 is resampled with a random rigid error of up to 2 mm and 2 deg | 12k |
+
+`analysis.py`: `mi-landscape` (is the slab-T1 mutual information highest at the true shift?) and `rigid-sensitivity`
+(error of trained models when the rigid transform is off by 0, 1-2, 3-6 or 6-10 mm and degrees).
+
+**Reproduce.** PyTorch for your GPU (https://pytorch.org), then:
+```bash
+pip install -r scripts/deformable/requirements.txt         # on top of environment.yml
+wandb login
+cd scripts
+python -m pytest ../tests/test_deformable.py -q             # no data needed
+bash deformable/run_all.sh                                   # all experiments + analyses, about 12 h on one GPU
+python -m deformable.train deformable/configs/00_final.yaml  # one experiment -> ../runs/deformable/00_final/
+python -m deformable.evaluate ../runs/deformable/00_final --slabs <folder of slabs>   # e.g. the test slabs
+```
+The experiments are independent and can also run in parallel. `RIGID=<csv> bash deformable/run_all.sh` also scores
+each model on the rigid model's transforms (CSV format: `data.read_rigid`). `demo.ipynb` runs the final model on one
+validation slab.
