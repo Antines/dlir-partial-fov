@@ -2,4 +2,4 @@
 # PyTorch: install the build for your GPU first (https://pytorch.org); tested with 2.14.1 + CUDA 13.0.
 torch==2.14.1
 pyyaml==6.0.3
-wandb==0.26.1
+wandb==0.31.0
