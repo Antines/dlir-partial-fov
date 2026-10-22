@@ -234,41 +234,25 @@ def fig_architecture():
     return fig
 
 
-def fig_test():
-    """Table of the blind test: references, classical methods, ours; this stage in blue."""
-    r = rows(TEST)
-    fig, ax = plt.subplots(figsize=(12, 4.6))
-    ax.axis('off')
-    cols = [(0.0, 'left', 'method'), (0.53, 'center', 'median TRE, mm\nall / axial / coronal'),
-            (0.79, 'center', 'failures, % of slabs\nall / axial / coronal'), (1.0, 'right', 'time per slab')]
-    n = len(r) + 2                                        # rows + the two gaps between the groups
-    y = lambda i: 1 - (i + 1.6) / (n + 1.6)
-    for x, ha, head in cols:
-        ax.text(x, 1, head, ha=ha, va='top', fontsize=9, color=MUTED, transform=ax.transAxes)
-    ax.axhline(y(-0.55), color=GRID, linewidth=1)
-    i = 0
-    for k, row in enumerate(r):
-        if k and row['group'] != r[k - 1]['group']:
-            i += 1
-        final = row['group'] == 'ours' and k == len(r) - 1
-        if final:
-            ax.add_patch(matplotlib.patches.Rectangle((-0.01, y(i) - 0.45 / (n + 1.6)), 1.02, 0.9 / (n + 1.6),
-                                                      transform=ax.transAxes, facecolor='#e3eefb', edgecolor='none'))
-        fail = [float(row[f'fail_pct_{s}']) for s in ('all', 'axial', 'coronal')]
-        cells = [row['method'], ' / '.join(row[f'tre_{s}'] for s in ('all', 'axial', 'coronal')),
-                 '0' if max(fail) == 0 else ' / '.join(f'{v:.1f}' for v in fail),
-                 '—' if not row['time_s'] else f"{float(row['time_s']):.2f} s" if float(row['time_s']) < 10
-                 else f"{float(row['time_s']):.0f} s"]
-        for (x, ha, _), c in zip(cols, cells):
-            ax.text(x, y(i), c, ha=ha, va='center', fontsize=10, transform=ax.transAxes,
-                    color=BLUE if final else MUTED if row['group'] == 'reference' else INK,
-                    fontweight='bold' if final else 'normal')
-        i += 1
-    return fig
+def test_table():
+    """Markdown table of the blind test (one row per method; this stage in bold)."""
+    head = ['method', 'median TRE, mm<br>all / axial / coronal', 'failures, %<br>all / axial / coronal', 'time per slab']
+    lines = ['| ' + ' | '.join(head) + ' |', '|---|:---:|:---:|---:|']
+    rows_ = rows(TEST)                                     # last row: this stage
+    for row in rows_:
+        t = row['time_s']
+        cells = [row['method'].split(' (')[0] if row['group'] != 'classical' else row['method'],
+                 ' / '.join(row[f'tre_{s}'] for s in ('all', 'axial', 'coronal')),
+                 ' / '.join(row[f'fail_pct_{s}'] for s in ('all', 'axial', 'coronal')),
+                 '—' if not t else f'{float(t):.2f} s' if float(t) < 10 else f'{float(t):.0f} s']
+        if row is rows_[-1]:
+            cells = [f'**{c}**' for c in cells]
+        lines.append('| ' + ' | '.join(cells) + ' |')
+    return '\n'.join(lines)
 
 
 FIGURES = {'architecture': fig_architecture, 'loss': fig_loss, 'output': fig_output, 'size': fig_size,
-           'rigid': fig_rigid, 'breakdown': fig_breakdown, 'test': fig_test}
+           'rigid': fig_rigid, 'breakdown': fig_breakdown}
 
 
 def upload(paths):
@@ -287,24 +271,26 @@ DESCRIPTION = ('After the rigid model has aligned an EPI slab to the T1 of the s
                '13 experiments, one seed each, scored on 1,080 real-distortion validation slabs.')
 
 
-def test_blocks(url):
+def test_blocks():
     """The final result: the full chain (rigid model + this stage) and the baselines on the blind test."""
     r = {x['method']: x for x in rows(TEST)}
     ours, rigid, afni = r['rigid model + U-Net (this stage)'], r['rigid model'], r['AFNI lpc+ZZ (affine)']
     oracle = lambda k: r[[m for m in r if m.startswith(k)][0]]['tre_all']
     return [
-        wr.H1(f"Final result on the held-out test: rigid model + this stage {ours['tre_all']} mm and "
-              f"{ours['fail_pct_all']} % failures in {ours['time_s']} s per slab; the best classical method "
-              f"(AFNI) {afni['tre_all']} mm and {afni['fail_pct_all']} % in {float(afni['time_s']):.0f} s"),
+        wr.H1(f"Final result on the held-out test: {ours['tre_all']} mm, {ours['fail_pct_all']} % failures, "
+              f"{ours['time_s']} s per slab (AFNI: {afni['tre_all']} mm, {afni['fail_pct_all']} %, "
+              f"{float(afni['time_s']):.0f} s)"),
         wr.P(f"Blind test: 59 held-out HCP subjects, 7,552 real-distortion slabs (2 orientations × 4 thicknesses × 4 "
              f"positions × 4 start errors per subject), never used for training, choosing or tuning; scored once with "
              f"the project's score.py. This stage takes the rigid model from {rigid['tre_all']} to {ours['tre_all']} mm "
              f"and from {rigid['fail_pct_all']} to {ours['fail_pct_all']} % failures; {ours['tre_all']} mm is below the "
              f"best rigid ({oracle('rigid oracle')} mm) and affine ({oracle('affine oracle')} mm) transform fitted to "
              f"the truth."),
-        wr.Image(url),
-        wr.P('TRE = mean distance between the predicted and the true T1 position over the scored voxels of a slab; '
-             'median over slabs. Failure = the rigid part of the predicted mapping is more than 2 mm or 2° from that '
+        wr.P('TRE = mean distance between the predicted and the true T1 position over the scored voxels of a slab, '
+             'mm, median over slabs; time = median time per slab. Oracles = the best rigid / affine transform fitted '
+             'to the truth. Last row = rigid model + U-Net (this stage).'),
+        wr.MarkdownBlock(test_table()),
+        wr.P('Failure = the rigid part of the predicted mapping is more than 2 mm or 2° from that '
              'of the truth. Rigid model = the first rigid estimate of the chain, before this stage; with this stage '
              'the chain refines the rigid estimate once with the predicted shift known and runs the U-Net again. '
              'Network: the configuration of 00_final from an earlier training run (validation 0.99 mm; the 00_final '
@@ -334,7 +320,7 @@ def blocks(urls):
     mm = lambda c: f'{t[c]:.2f} mm'
     return [
         wr.TableOfContents(),
-        *test_blocks(urls['test']),
+        *test_blocks(),
         *section('Architecture: one shift per voxel along PE, from a 0.29 M-parameter U-Net', urls['architecture'],
                  'Input: the slab and the T1 resampled onto the slab grid through the rigid transform M. The slab is '
                  'flipped / transposed so that PE is always the same tensor axis with the same sign (canonical '
@@ -408,14 +394,14 @@ def curves():
              ('train_tre', 'Training TRE (mean over 100 steps)', 'mean TRE, mm'),
              ('loss', 'Training loss (scale differs between loss functions)', 'loss')]
     panels = [wr.LinePlot(title=t, x='Step', y=[k], title_y=ty, smoothing_factor=0.6 if k in ('train_tre', 'loss') else 0,
-                          smoothing_type='exponential', legend_position='east',
+                          smoothing_type='exponential', legend_position='east', max_runs_to_show=len(CONFIGS),
                           layout=wr.Layout(x=12 * (i % 2), y=8 * (i // 2), w=12, h=8))
               for i, (k, t, ty) in enumerate(lines)]
     names = ', '.join(f"'{c}'" for c in CONFIGS)
     runs = wr.Runset(ENTITY, PROJECT, name='Experiments', filters=f'Name in [{names}]',
-                     order=[wr.OrderBy('Name', ascending=True)],
-                     visible_columns=['summary:val/tre', 'summary:val/pct_below_2mm', 'summary:val/fold_pct',
-                                      'summary:val/tre_rigid_model', 'config:steps.value'])
+                     order=[wr.OrderBy('Name', ascending=True)], lock_columns=True,
+                     pinned_columns=['run:displayName', 'summary:val/tre', 'summary:val/pct_below_2mm',
+                                     'summary:val/fold_pct', 'summary:val/tre_rigid_model', 'config:steps.value'])
     return wr.PanelGrid(runsets=[runs], panels=panels)
 
 
