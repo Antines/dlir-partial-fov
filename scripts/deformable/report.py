@@ -85,7 +85,7 @@ def bars(ax, labels, values, final, xlabel, refs=(), fmt='{:.2f}'.format):
 def fig_loss():
     names = ['00_final', '03_loss_sqdist_plus_mi', '04_loss_l1', '01_loss_mi_smooth1', '02_loss_mi_smooth100']
     labels = ['squared distance (final, 20k)', 'squared distance + MI (12k)', 'mean distance, L1 (12k)',
-              'MI, smoothness 1 (6k)', 'MI, smoothness 100 (6k)']
+              'MI, smoothness 1 (6k, start kept)', 'MI, smoothness 100 (6k)']
     s = {n: summary(n) for n in names}
     mi = json.loads((OUT / 'analysis' / 'mi_landscape_summary.json').read_text())
     curve = rows(OUT / 'analysis' / 'mi_landscape_slabs.csv')
@@ -263,52 +263,66 @@ def blocks(urls):
     t = {c: s[c]['tre'] for c in CONFIGS}
     f = s['00_final']
     mi = json.loads((OUT / 'analysis' / 'mi_landscape_summary.json').read_text())
-    sens = rows(OUT / 'analysis' / 'rigid_sensitivity_slabs.csv')
-    shift = [float(r['shift_error']) for r in sens if r['model'] == '00_final']
+    sens = {(r['model'], r['rigid_error']): r for r in rows(OUT / 'analysis' / 'rigid_sensitivity_slabs.csv')}
+    shift = lambda m: ' / '.join(f"{float(sens[m, e]['shift_error']):.2f}" for e in ('0-0', '1-2', '3-6', '6-10'))
+    ex = sorted(float(r['tre']) for r in rows(OUT / '00_final' / 'val_slabs.csv'))
+    q = lambda p: ex[round(p * (len(ex) - 1))]
+    mm = lambda c: f'{t[c]:.2f} mm'
     return [
         wr.TableOfContents(),
         wr.H1('Final result: pending'),
         wr.CalloutBlock('The full chain (rigid model + this stage) on the 59 held-out test subjects (7,552 slabs) is '
-                        'being scored by the team; the result will be added here. Everything below is validation: 1,080 '
-                        'real-distortion slabs of 30 validation subjects.'),
+                        'being scored; the result will be added here. Everything below is validation: 1,080 '
+                        'real-distortion slabs of 30 validation subjects, never used for training or choosing.'),
         *section('Architecture: one shift per voxel along PE, from a 0.29 M-parameter U-Net', urls['architecture'],
                  'Input: the slab and the T1 resampled onto the slab grid through the rigid transform M. The slab is '
                  'flipped / transposed so that PE is always the same tensor axis with the same sign (canonical '
                  'orientation). The U-Net outputs a velocity along PE; scaling and squaring integrates it into a smooth '
                  'shift without folds. Tensor sizes are for an axial 16 mm slab.'),
-        *section(f"Loss: squared distance to the true position {t['00_final']:.2f} mm; mutual information "
-                 f"{min(t['01_loss_mi_smooth1'], t['02_loss_mi_smooth100']):.2f}–"
-                 f"{max(t['01_loss_mi_smooth1'], t['02_loss_mi_smooth100']):.2f} mm", urls['loss'],
-                 'Compared loss functions (each + λ × mean squared difference of the velocity between neighbouring '
-                 'voxels, λ = 0.1 unless stated): squared distance = mean over the scored slab voxels of |predicted − '
-                 'true T1 position|², in mm², the true position comes from the simulator; L1 = the same distance without '
-                 'the square; MI = minus the mutual information between the slab and the T1 sampled at the predicted '
-                 'positions, the classical similarity measure of multimodal registration, needs no ground truth '
-                 '(λ = 1 and 100); squared distance + MI = both.',
-                 f"Right: along the true shift, MI peaks at the truth on {mi['pct_peak_at_truth']:.0f} % of slabs and "
-                 f"beyond it on {mi['pct_peak_above_truth']:.0f} %. TRE = mean distance between the predicted and the "
-                 f"true T1 position over a slab; median over 1,080 slabs; the rigid transform is exact."),
-        *section(f"Output: one shift along PE {t['00_final']:.2f} mm; free 3D shift {t['05_output_3d']:.2f} mm; "
-                 f"without canonical orientation {t['06_output_no_canonical']:.2f} mm", urls['output'],
-                 f"Without scaling and squaring: {t['07_output_direct_shift']:.2f} mm and "
-                 f"{s['07_output_direct_shift']['fold_pct']:.3f} % folded voxels. Smoothness weight 0 / 0.1 / 1: "
-                 f"{t['08_smooth_0']:.2f} / {t['00_final']:.2f} / {t['09_smooth_1']:.2f} mm."),
-        *section(f"Network size: channels ×0.5 / ×1 / ×2 give {t['10_unet_half']:.2f} / {t['00_final']:.2f} / "
-                 f"{t['11_unet_double']:.2f} mm", urls['size'],
-                 '0.07 M / 0.29 M / 1.16 M parameters. The final model was trained for 20k steps, the other two for 12k.'),
-        *section(f"Link to the rigid model: shift error {' / '.join(f'{v:.2f}' for v in shift)} mm at a rigid error of "
-                 f"0 / 1–2 / 3–6 / 6–10 mm and degrees", urls['rigid'],
-                 f"On top of the rigid model: {f['no_deformation_rigid_model']:.2f} mm without deformation, "
-                 f"{f['tre_rigid_model']:.2f} mm with the final model, "
-                 f"{s['12_rigid_noise']['tre_rigid_model']:.2f} mm with the model trained with random rigid errors of "
-                 f"up to 2 mm and 2°. Rigid errors in the sensitivity test: random, the same for both models."),
-        *section('Examples: slabs at the 10th, 50th and 90th percentile of TRE', urls['examples'],
+        *section(f"Loss: squared distance to the true position {mm('00_final')}; mutual information alone "
+                 f"{mm('02_loss_mi_smooth100')} and {mm('01_loss_mi_smooth1')} (no correction: "
+                 f"{f['no_deformation']:.2f} mm)", urls['loss'],
+                 'Compared loss functions, each + λ × mean squared difference of the velocity between neighbouring '
+                 'voxels (λ = 0.1 unless stated). Squared distance = mean over the scored slab voxels of |predicted − '
+                 'true T1 position|², in mm²; the true position comes from the simulator. L1 = the same distance '
+                 'without the square. MI = minus the mutual information between the slab and the T1 sampled at the '
+                 'predicted positions, the classical similarity measure of multimodal registration; needs no ground '
+                 'truth. Squared distance + MI = both.',
+                 f"MI with λ = 1 only made the held-out error worse, so its chosen checkpoint is the starting network "
+                 f"(no shift). Right: along the true shift, MI peaks at the truth on {mi['pct_peak_at_truth']:.0f} % of "
+                 f"slabs and beyond it on {mi['pct_peak_above_truth']:.0f} %, so the measure itself points the right way. "
+                 f"TRE = mean distance between the predicted and the true T1 position over a slab; median over 1,080 "
+                 f"slabs; exact rigid transform."),
+        *section(f"Output: a free 3D shift ({mm('05_output_3d')}) is as good as one shift along PE "
+                 f"({mm('00_final')}); without canonical orientation {mm('06_output_no_canonical')}", urls['output'],
+                 f"The 3D vs PE difference is below the ~0.3 mm error of the ground truth. Without scaling and squaring: "
+                 f"{mm('07_output_direct_shift')} and {s['07_output_direct_shift']['fold_pct']:.3f} % folded voxels "
+                 f"(0 % with it). Smoothness weight 0 / 0.1 / 1: {t['08_smooth_0']:.2f} / {t['00_final']:.2f} / "
+                 f"{t['09_smooth_1']:.2f} mm."),
+        *section(f"Network size: ×0.5 channels {mm('10_unet_half')}, ×1 {mm('00_final')}, ×2 "
+                 f"{mm('11_unet_double')}", urls['size'],
+                 '0.07 M / 0.29 M / 1.16 M parameters. ×1 was trained for 20k steps, ×0.5 and ×2 for 12k.'),
+        *section(f"Link to the rigid model: on top of it {f['tre_rigid_model']:.2f} mm (rigid model alone "
+                 f"{f['no_deformation_rigid_model']:.2f} mm, AFNI {f['base_afni_lpc']:.2f} mm); the shift error grows "
+                 f"with the rigid error: {shift('00_final')} mm", urls['rigid'],
+                 f"Rigid error added in the test: 0 / 1–2 / 3–6 / 6–10 mm and degrees, random, the same for both "
+                 f"models. Trained with random rigid errors of up to 2 mm and 2° (12k steps): {mm('12_rigid_noise')} "
+                 f"with the exact rigid, {s['12_rigid_noise']['tre_rigid_model']:.2f} mm on top of the rigid model, "
+                 f"shift error {shift('12_rigid_noise')} mm: not more robust."),
+        *section(f"Examples: the predicted shift follows the true one; slabs at the 10th / 50th / 90th percentile "
+                 f"of TRE: {q(0.1):.2f} / {q(0.5):.2f} / {q(0.9):.2f} mm", urls['examples'],
                  'Yellow: T1 grey / white-matter boundary over the slab (middle slice) without and with the predicted '
                  'shift. Right: predicted and true shift along PE over the scored voxels, mm. Exact rigid transform.'),
-        *section(f"By slab type: largest error on inferior slabs", urls['breakdown'],
-                 'Medians over the slabs of each type. AFNI lpc+ZZ = the best classical baseline (affine, whole '
-                 'pipeline); final on top of the rigid model = the realistic chain.'),
-        wr.H1(f"Training curves: held-out simulated TRE {f['tre']:.2f} vs real"),
+        *section(f"By slab type: coronal slabs {f['tre_orientation_coronal']:.2f} mm vs axial "
+                 f"{f['tre_orientation_axial']:.2f} mm; inferior slabs (30 %) {f['tre_position_0.3']:.2f} mm",
+                 urls['breakdown'],
+                 'Medians over the slabs of each type. AFNI lpc+ZZ = the best classical baseline (affine, the whole '
+                 'registration); final on top of the rigid model = the realistic chain.'),
+        wr.H1('Training curves: simulated held-out TRE 0.6–0.7 mm, real 0.9–1.2 mm; the real error still falls '
+              'at the end of 12k-step runs'),
+        wr.P('The checkpoint is chosen on 64 simulated slabs of 10 held-out training subjects; the 120 real slabs only '
+             'show the gap. On real slabs the error moves by up to ~0.2 mm between neighbouring checkpoints, so '
+             'differences of this size between experiments are not meaningful.'),
         curves(),
         wr.P('Each run: config, curves, summary (val/*), per-slab table (val_slabs), weights as the artifact '
              '<config>-model (best.pt + config.yaml).'),
@@ -318,8 +332,8 @@ def blocks(urls):
             'grid, head motion, PE axis and sign, distortion strength, header error); 64 fixed simulated slabs of 10 '
             'more training subjects choose the checkpoint; 1,080 real-distortion slabs of 30 validation subjects '
             '(measured field maps, whole-brain anchor) score the models.',
-            'Speed: 0.29 M parameters, about 5 ms per slab for the network and scaling and squaring (RTX 5080); '
-            'the T1 resampling is extra.',
+            'Speed: 0.29 M parameters; network + scaling and squaring 8–14 ms per slab on a shared L40S, about 5 ms '
+            'on an RTX 5080; the T1 resampling is extra.',
             'Limitations: one seed per experiment; unequal budgets (6k / 12k / 20k steps); the ground truth itself is '
             'uncertain by 0.2–0.4 mm, so differences below ~0.3 mm are not claimed; simulated and real TRE differ; '
             'accuracy depends on the rigid stage.']),

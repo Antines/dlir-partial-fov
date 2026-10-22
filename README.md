@@ -5,8 +5,8 @@ susceptibility distortion. This repository preprocesses raw HCP scans, simulates
 checks the data, and runs the classical baselines. The best classical method on the held-out test slabs is AFNI
 `align_epi_anat.py` (lpc+ZZ): median error 1.70 mm, 28 % failures.
 
-**Experiment tracking, deformable stage:** W&B project
-[dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable) (see [Deformable stage](#deformable-stage)).
+**Experiment tracking, deformable stage: [W&B Report](https://wandb.ai/chetverkin-ai/dlir-deformable/reports/DLIR-partial-FOV:-deformable-stage--VmlldzoxODE2NjEyNw==)** (experiments, training curves, weights; project
+[dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable); see [Deformable stage](#deformable-stage)).
 
 ## Data
 
@@ -226,7 +226,7 @@ A method's error on a slab (TRE) is the mean distance between its estimated and 
 `scripts/baselines/run_baselines.py` (returning a 4 x 4 transform or a T1 position per voxel).
 
 ## Deformable stage
-Code: `scripts/deformable/`. Experiment tracking: W&B project
+Code: `scripts/deformable/`. Results: **[W&B Report](https://wandb.ai/chetverkin-ai/dlir-deformable/reports/DLIR-partial-FOV:-deformable-stage--VmlldzoxODE2NjEyNw==)**. Experiment tracking: W&B project
 [dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable): every experiment below with its training curves,
 validation summary, per-slab table and weights (artifact `<config>-model`).
 

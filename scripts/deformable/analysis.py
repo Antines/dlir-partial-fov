@@ -97,15 +97,16 @@ def examples(run, dev, quantiles=(0.1, 0.5, 0.9)):
         r = rows[round(q * (len(rows) - 1))]
         b = ds[names.index(r['slab'])]
         u, _ = predict(net, cfg, b['x'], b['pe_axis'], b['pe_sign'])
-        moved = warp(b['x'][None, 1:].to(dev), u)[0, 0].cpu()
+        t1 = b['x'][1] * b['t1mask']                                              # T1 brain only
+        moved = warp(t1[None, None].to(dev), u)[0, 0].cpu()
         mm = b['H'][:3, b['pe_axis']].norm().item()                               # voxel size along PE
         along_pe = lambda s: np.where(b['mask'].numpy(), s[0, b['pe_axis']].cpu().numpy() * mm, np.nan)
         pred, true = along_pe(u), along_pe(true_shift(b))
         k, lim = b['x'].shape[3] // 2, np.nanpercentile(np.abs(true), 99)
-        for a, t1, tre, title in [(ax[0], b['x'][1], r['no_deformation'], 'without deformation'),
-                                  (ax[1], moved, r['tre'], 'with the predicted shift')]:
+        for a, edges, tre, title in [(ax[0], t1, r['no_deformation'], 'without deformation'),
+                                     (ax[1], moved, r['tre'], 'with the predicted shift')]:
             a.imshow(b['x'][0, :, :, k].T, cmap='gray', origin='lower', vmin=0, vmax=1)
-            a.contour(t1[:, :, k].T, levels=[0.7], colors='yellow', linewidths=0.8)       # grey / white matter boundary
+            a.contour(edges[:, :, k].T, levels=[0.48], colors='yellow', linewidths=0.8)   # grey / white matter boundary
             a.set_title(f'{title}: TRE {float(tre):.2f} mm', fontsize=10)
         for a, s, title in [(ax[2], pred, 'predicted shift along PE'), (ax[3], true, 'true shift along PE')]:
             a.set_facecolor('#e8e8e6')
