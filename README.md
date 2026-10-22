@@ -49,11 +49,12 @@ checks the data, and runs the classical baselines. The best classical method on 
 │   └── deformable/                          deformable stage (DL): shift of every slab voxel along PE
 │       ├── data.py, model.py, losses.py     training / validation slabs, network, error measure and loss terms
 │       ├── train.py, evaluate.py            train and score one experiment; score a trained model on any slabs
-│       ├── analysis.py                      MI landscape; sensitivity to rigid errors
+│       ├── analysis.py                      MI landscape; sensitivity to rigid errors; example slabs
+│       ├── report.py                        figures and the W&B Report from the finished runs
 │       ├── configs/                         one YAML per experiment: 00_final ... 12_rigid_noise
 │       ├── run_all.sh                       all experiments, then the analyses
 │       ├── demo.ipynb                       the final model on one validation slab
-│       └── requirements.txt                 torch, pyyaml, wandb
+│       └── requirements.txt                 torch, pyyaml, wandb, wandb-workspaces
 ├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
@@ -264,8 +265,10 @@ deformable stage alone) and, given `--rigid`, with the rigid model's transform o
 | `10_unet_half`, `11_unet_double` | U-Net channels x0.5 / x2 (0.07 M / 1.16 M parameters) | 12k |
 | `12_rigid_noise` | in training, the T1 is resampled with a random rigid error of up to 2 mm and 2 deg | 12k |
 
-`analysis.py`: `mi-landscape` (is the slab-T1 mutual information highest at the true shift?) and `rigid-sensitivity`
-(error of trained models when the rigid transform is off by 0, 1-2, 3-6 or 6-10 mm and degrees).
+`analysis.py`: `mi-landscape` (is the slab-T1 mutual information highest at the true shift?), `rigid-sensitivity`
+(error of trained models when the rigid transform is off by 0, 1-2, 3-6 or 6-10 mm and degrees) and `examples`
+(slabs at the 10th, 50th and 90th percentile of TRE, before and after). `report.py` makes the figures and the W&B
+Report from the finished runs.
 
 **Reproduce.** PyTorch for your GPU (https://pytorch.org), then:
 ```bash
@@ -274,6 +277,7 @@ wandb login
 cd scripts
 python -m pytest ../tests/test_deformable.py -q             # no data needed
 bash deformable/run_all.sh                                   # all experiments + analyses, about 12 h on one GPU
+python -m deformable.report                                  # figures + W&B Report (prints its URL)
 python -m deformable.train deformable/configs/00_final.yaml  # one experiment -> ../runs/deformable/00_final/
 python -m deformable.evaluate ../runs/deformable/00_final --slabs <folder of slabs>   # e.g. the test slabs
 ```

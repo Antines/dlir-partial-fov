@@ -1,4 +1,4 @@
-"""Two analyses on the 1,080 validation slabs, logged to W&B and saved to runs/deformable/analysis/.
+"""Analyses on the 1,080 validation slabs, logged to W&B and saved to runs/deformable/analysis/.
 
 mi-landscape       Does the slab-T1 mutual information peak at the true shift? MI between the slab and the T1 moved by
                    s x (true shift), s = 0, 0.25, ..., 2 (s = 0: no correction, s = 1: the truth). No training.
@@ -6,14 +6,21 @@ rigid-sensitivity  How exact must the rigid transform be? Trained models get the
                    transform plus a random rigid error of 0, 1-2, 3-6 or 6-10 mm and degrees (the same error for
                    every model). Shift error = scored with the exact transform (the deformable stage alone);
                    total error = scored with the transform it was given.
+examples           Slabs at the 10th, 50th and 90th percentile of a trained model's TRE (exact rigid transform):
+                   T1 edges over the slab without and with the predicted shift; predicted and true shift along PE.
 Run from scripts/:  python -m deformable.analysis mi-landscape
                     python -m deformable.analysis rigid-sensitivity ../runs/deformable/00_final ../runs/deformable/12_rigid_noise
+                    python -m deformable.analysis examples ../runs/deformable/00_final
 """
 import argparse
+import csv
 import json
 import zlib
 from pathlib import Path
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wandb
@@ -75,6 +82,44 @@ def rigid_sensitivity(runs, dev):
     return rows
 
 
+@torch.no_grad()
+def examples(run, dev, quantiles=(0.1, 0.5, 0.9)):
+    """Figure: one row per slab at the given quantiles of the run's validation TRE, middle slice. Columns: T1 edges over
+    the slab without / with the predicted shift (TRE of the whole slab in the titles); predicted / true shift along PE
+    (mm) over the scored voxels."""
+    net, cfg = load_run(run, dev)
+    with open(Path(run) / 'val_slabs.csv') as f:
+        rows = sorted(csv.DictReader(f), key=lambda r: float(r['tre']))
+    ds = ValSlabs()
+    names = [f'{d.parent.name}/{d.name}' for d in ds.dirs]
+    fig, axes = plt.subplots(len(quantiles), 4, figsize=(13, 3.2 * len(quantiles)), layout='constrained')
+    for ax, q in zip(axes, quantiles):
+        r = rows[round(q * (len(rows) - 1))]
+        b = ds[names.index(r['slab'])]
+        u, _ = predict(net, cfg, b['x'], b['pe_axis'], b['pe_sign'])
+        moved = warp(b['x'][None, 1:].to(dev), u)[0, 0].cpu()
+        mm = b['H'][:3, b['pe_axis']].norm().item()                               # voxel size along PE
+        along_pe = lambda s: np.where(b['mask'].numpy(), s[0, b['pe_axis']].cpu().numpy() * mm, np.nan)
+        pred, true = along_pe(u), along_pe(true_shift(b))
+        k, lim = b['x'].shape[3] // 2, np.nanpercentile(np.abs(true), 99)
+        for a, t1, tre, title in [(ax[0], b['x'][1], r['no_deformation'], 'without deformation'),
+                                  (ax[1], moved, r['tre'], 'with the predicted shift')]:
+            a.imshow(b['x'][0, :, :, k].T, cmap='gray', origin='lower', vmin=0, vmax=1)
+            a.contour(t1[:, :, k].T, levels=[0.7], colors='yellow', linewidths=0.8)       # grey / white matter boundary
+            a.set_title(f'{title}: TRE {float(tre):.2f} mm', fontsize=10)
+        for a, s, title in [(ax[2], pred, 'predicted shift along PE'), (ax[3], true, 'true shift along PE')]:
+            a.set_facecolor('#e8e8e6')
+            im = a.imshow(s[:, :, k].T, cmap='RdBu_r', origin='lower', vmin=-lim, vmax=lim)
+            a.set_title(title, fontsize=10)
+        fig.colorbar(im, ax=ax[2:], label='mm', shrink=0.9)
+        ax[0].set_ylabel(f'{q:.0%} of slabs have lower TRE\n{r["orientation"]}, {r["thickness"]} mm, '
+                         f'position {float(r["position"]):.0%}', fontsize=9)
+        for a in ax:
+            a.set_xticks([])
+            a.set_yticks([])
+    return fig
+
+
 def perturbed(lo, hi):
     """{slab: exact rigid transform with a random rigid error of lo-hi mm and degrees}, seeded by the slab name."""
     out = {}
@@ -88,8 +133,8 @@ def perturbed(lo, hi):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('analysis', choices=['mi-landscape', 'rigid-sensitivity'])
-    ap.add_argument('runs', nargs='*', help='training run folders (rigid-sensitivity)')
+    ap.add_argument('analysis', choices=['mi-landscape', 'rigid-sensitivity', 'examples'])
+    ap.add_argument('runs', nargs='*', help='training run folders (rigid-sensitivity, examples)')
     args = ap.parse_args()
     dev = device()
     out = OUT / 'analysis'
@@ -102,6 +147,9 @@ def main():
         table = wandb.Table(columns=['s', 'median MI(s) - MI(1)'], data=curve)
         run.log({'mi_landscape': wandb.plot.line(table, 's', 'median MI(s) - MI(1)'),
                  'mi_slabs': wandb.Table(columns=list(rows[0]), data=[list(r.values()) for r in rows])})
+    elif args.analysis == 'examples':
+        examples(args.runs[0], dev).savefig(out / 'examples.png', dpi=150)
+        run.log({'examples': wandb.Image(str(out / 'examples.png'))})
     else:
         rows = rigid_sensitivity(args.runs, dev)
         save(rows, {}, out, 'rigid_sensitivity')
