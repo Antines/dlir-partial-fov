@@ -56,6 +56,13 @@ class UNet(nn.Module):
         return self.head(self.final(x))
 
 
+def device():
+    """CUDA if available, else Apple MPS, else CPU."""
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    return torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+
+
 def build(cfg):
     """Input: slab and T1 (+ PE axis and sign as two constant channels without canonical orientation).
     Output: one channel (shift along PE) or three (free 3D shift)."""

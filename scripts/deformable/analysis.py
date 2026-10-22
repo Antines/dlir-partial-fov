@@ -24,7 +24,7 @@ from slabsim.geometry import random_rigid
 from .data import DATA, ValSlabs, exact_M_val
 from .evaluate import load_run, save
 from .losses import mutual_information, voxel_errors
-from .model import identity_grid, predict, warp
+from .model import device, identity_grid, predict, warp
 from .train import OUT
 
 SCALES = np.linspace(0, 2, 9)
@@ -91,7 +91,7 @@ def main():
     ap.add_argument('analysis', choices=['mi-landscape', 'rigid-sensitivity'])
     ap.add_argument('runs', nargs='*', help='training run folders (rigid-sensitivity)')
     args = ap.parse_args()
-    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dev = device()
     out = OUT / 'analysis'
     out.mkdir(parents=True, exist_ok=True)
     run = wandb.init(project='dlir-deformable', name=f'analysis_{args.analysis}', dir=out)

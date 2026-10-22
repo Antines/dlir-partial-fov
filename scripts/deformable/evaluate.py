@@ -17,14 +17,14 @@ from torch.utils.data import DataLoader
 
 from .data import DATA, ValSlabs, read_rigid
 from .losses import voxel_errors
-from .model import build, jacobian_det, predict
+from .model import build, device, jacobian_det, predict
 
 
-def load_run(run_dir, device):
+def load_run(run_dir, dev):
     """Network with the chosen checkpoint (best.pt) of a training run, and its config."""
     cfg = yaml.safe_load((Path(run_dir) / 'config.yaml').read_text())
-    net = build(cfg).to(device)
-    net.load_state_dict(torch.load(Path(run_dir) / 'best.pt', map_location=device))
+    net = build(cfg).to(dev)
+    net.load_state_dict(torch.load(Path(run_dir) / 'best.pt', map_location=dev))
     return net.eval(), cfg
 
 
@@ -81,7 +81,7 @@ def main():
     ap.add_argument('--slabs', default=str(DATA / 'test'), help='folder of real-distortion slabs')
     ap.add_argument('--rigid', help="CSV with the rigid model's transform of every slab (see data.read_rigid)")
     args = ap.parse_args()
-    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dev = device()
     net, cfg = load_run(args.run, dev)
     rows, summary = evaluate(net, cfg, args.slabs, read_rigid(args.rigid) if args.rigid else None)
     save(rows, summary, args.run, Path(args.slabs).name)

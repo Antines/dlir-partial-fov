@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, Subset
 from .data import REPO, TrainStream, ValSlabs, holdout_set, read_rigid, split_runs
 from .evaluate import evaluate, save
 from .losses import mutual_information, smoothness, voxel_errors
-from .model import build, predict, warp
+from .model import build, device, predict, warp
 
 OUT = REPO / 'runs' / 'deformable'
 
@@ -64,7 +64,7 @@ def main():
     out = OUT / name
     out.mkdir(parents=True, exist_ok=True)
     (out / 'config.yaml').write_text(Path(args.config).read_text())
-    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dev = device()
     torch.manual_seed(cfg['seed'])
     gen = torch.Generator().manual_seed(cfg['seed'])
     run = wandb.init(project='dlir-deformable', name=name, config=cfg, dir=out)
