@@ -6,7 +6,7 @@ checks the data, and runs the classical baselines. The best classical method on 
 `align_epi_anat.py` (lpc+ZZ): median error 1.70 mm, 28 % failures.
 
 **Experiment tracking, deformable stage:** W&B project
-[dlir-deformable](https://wandb.ai/WANDB_ENTITY/dlir-deformable) (see [Deformable stage](#deformable-stage)).
+[dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable) (see [Deformable stage](#deformable-stage)).
 
 ## Data
 
@@ -226,7 +226,7 @@ A method's error on a slab (TRE) is the mean distance between its estimated and 
 
 ## Deformable stage
 Code: `scripts/deformable/`. Experiment tracking: W&B project
-[dlir-deformable](https://wandb.ai/WANDB_ENTITY/dlir-deformable): every experiment below with its training curves,
+[dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable): every experiment below with its training curves,
 validation summary, per-slab table and weights (artifact `<config>-model`).
 
 **Task.** The rigid stage gives a transform M from the slab's header H to the T1. Each slab voxel is then still
