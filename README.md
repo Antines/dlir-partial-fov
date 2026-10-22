@@ -58,7 +58,8 @@ checks the data, and runs the classical baselines. The best classical method on 
 ├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
-│   └── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
+│   ├── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
+│   └── deformable/test_summary.csv          blind test of the full chain (rigid model + deformable stage) and baselines
 └── tests/                                   unit tests: physics, inversion, transform conventions, deformable stage
 ```
 
@@ -264,6 +265,11 @@ deformable stage alone) and, given `--rigid`, with the rigid model's transform o
 | `08_smooth_0`, `09_smooth_1` | smoothness weight 0 / 1 instead of 0.1 | 12k |
 | `10_unet_half`, `11_unet_double` | U-Net channels x0.5 / x2 (0.07 M / 1.16 M parameters) | 12k |
 | `12_rigid_noise` | in training, the T1 is resampled with a random rigid error of up to 2 mm and 2 deg | 12k |
+
+**Test** (`qc/deformable/test_summary.csv`, first section of the W&B Report). Blind test, 59 subjects, 7,552
+slabs, scored once with `score.py`: rigid model + this stage 1.12 mm median TRE and 14.0 % failures in 0.50 s per
+slab (rigid model alone 1.76 mm, 21.6 %); AFNI lpc+ZZ 1.70 mm, 28.2 % in 103 s. Network: the `00_final`
+configuration from an earlier training run (validation 0.99 mm), as built into the real-time chain.
 
 `analysis.py`: `mi-landscape` (is the slab-T1 mutual information highest at the true shift?), `rigid-sensitivity`
 (error of trained models when the rigid transform is off by 0, 1-2, 3-6 or 6-10 mm and degrees) and `examples`
