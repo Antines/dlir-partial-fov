@@ -1,0 +1,9 @@
+refinement:
+  scales: [0.5, 1.0]
+  steps: [35, 45]
+  learning_rate: 0.1
+  window: 7
+  similarity: negative_ncc
+  max_rotation_deg: 25.0
+  max_translation_mm: 60.0
+  minimum_valid_fraction: 0.3

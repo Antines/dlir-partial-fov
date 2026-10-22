@@ -1,0 +1,36 @@
+seed: 2026
+output_dir: outputs/rigid_spatial_fusion_easy_v1
+
+data:
+  # Start with easy, as suggested in the group: thick slabs, low tilt, small start errors.
+  # Change to full only after the smoke/overfit test works.
+  difficulty: easy
+  slabs_per_run: 8
+  probe_points: 2048
+  num_workers: 4
+  val_max_slabs: 180
+
+model:
+  # Coarse whole-T1 grid used by both encoders; XYZ order.
+  grid_shape_xyz: [64, 80, 80]
+  base_channels: 12
+  max_rotation_deg: 25.0
+  max_translation_mm: 60.0
+
+optim:
+  lr: 0.0002
+  weight_decay: 0.0001
+
+train:
+  epochs: 8
+  steps_per_epoch: 500
+  log_every: 25
+  grad_clip: 5.0
+  amp: true
+
+logging:
+  # Mandatory final-project tracking can be enabled once the team chooses the W&B project.
+  wandb:
+    enabled: true
+    project: neuroml-dlir
+    name: rigid-spatial-fusion-easy-v1
