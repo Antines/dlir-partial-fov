@@ -1,6 +1,6 @@
 # Rigid-stage validation — frozen v1
 
-**Data:** 1,080 saved validation slabs from 30 HCP subjects; the directory `dlir_data/test/` is Raphael's *validation* archive, not the separate held-out test split.
+**Data:** 1,080 saved validation slabs from 30 HCP subjects; the directory `dlir_data/test/` is the *validation* archive, not the separate held-out test split.
 
 **Method:** Header-initialized, support-aware, coarse-to-fine, 6-DOF rigid optimization using local negative NCC. This is a numerical registration method, **not a trained neural network**. Earlier spatial-fusion CNN results are a separate learned baseline. The original simulator, truth generation, and validation evaluator were not modified.
 
@@ -20,7 +20,7 @@ Relative median TRE reduction versus header: **73.38%**. Paired TRE improved on 
 
 TRE is *mean voxelwise physical displacement per slab*, aggregated by the *median across slabs*. The 2-mm TRE rate is a separate criterion from rigid-pose failure. The full cell includes file loading and output logging, so median GPU optimization time is not total wall-clock latency.
 
-The previous spatial-fusion CNN achieved 5.143 mm median TRE on this validation archive. Raphael's stored 12-DOF AFNI `lpc+ZZ` affine result was 1.551 mm median TRE and 13.98% failure. The rigid oracle was 1.544 mm median TRE. The latter two results are references, **not direct equivalents to a 6-DOF model**.
+The previous spatial-fusion CNN achieved 5.143 mm median TRE on this validation archive. The stored 12-DOF AFNI `lpc+ZZ` affine result was 1.551 mm median TRE and 13.98% failure. The rigid oracle was 1.544 mm median TRE. The latter two results are references, **not direct equivalents to a 6-DOF model**.
 
 ## Robustness
 
@@ -57,4 +57,4 @@ Subject `158035` appears repeatedly. The audit notebook produces case-level pair
 - The held-out final test subjects remain untouched by the development workflow.
 - The deformable-stage model and its actual output scores are **not** contained in the available rigid-stage repository snapshot; this release prepares a validated affine/PE metadata handoff, not a verified full cascade.
 
-**Source of numerical results:** execution outputs in `rigid_stage_full_validation_1080 (1).ipynb` supplied on October 22, 2026. The final handoff notebook was subsequently executed in Colab; the user verified the exported archive with an integrity check confirming 1,080 rigid.txt files, 1,080 metadata.json files, and two global manifests (2,162 files total). This does not establish full rigid-to-deformable integration.
+**Source of numerical results:** execution outputs in `rigid_stage_full_validation_1080 (1).ipynb` supplied on October 22, 2026. The final handoff notebook was subsequently executed in Colab; the exported archive passed an integrity check confirming 1,080 rigid.txt files, 1,080 metadata.json files, and two global manifests (2,162 files total). This does not establish full rigid-to-deformable integration.

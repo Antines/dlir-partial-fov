@@ -30,4 +30,4 @@ pe_axis, pe_sign, trt = record['pe_axis'], record['pe_sign'], record['trt']
 
 The exporter rejects invalid transforms, invalid PE metadata, missing cases, missing transform files, and mismatches with an already exported case. It uses atomic metadata writes and produces resumable per-case output.
 
-The handoff archive is **validation-only**. It contains no source volumes, dense physical truth, field maps or evaluation masks, and must not be represented as a held-out test result. It is prepared for Danil's deformable-stage input adapter; a complete cascade requires running Danil's implementation on representative cases and verifying the combined geometry.
+The handoff archive is **validation-only**. It contains no source volumes, dense physical truth, field maps or evaluation masks, and must not be represented as a held-out test result. It is prepared for the deformable-stage input adapter; a complete cascade requires running the deformable-stage implementation on representative cases and verifying the combined geometry.

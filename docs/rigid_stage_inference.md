@@ -12,6 +12,6 @@ python scripts/dl/predict_rigid.py \
   --config configs/rigid_refine.yaml
 ```
 
-Output: `rigid.txt` (4×4 RAS-mm residual rigid matrix), `rigid.json` (corrected affine, unchanged `pe_axis`, `pe_sign`, `trt`, signed PE direction, objective diagnostics). `corrected_affine = rigid @ slab_affine`; the output must be tested in Danil's deformation and resampling code before end-to-end results are claimed. For an on-the-fly PyTorch stream, import `predict_rigid(slab, slab_affine, t1, t1_affine, t1_mask=...)` directly and cache predictions outside the training loop if practical.
+Output: `rigid.txt` (4×4 RAS-mm residual rigid matrix), `rigid.json` (corrected affine, unchanged `pe_axis`, `pe_sign`, `trt`, signed PE direction, objective diagnostics). `corrected_affine = rigid @ slab_affine`; the output must be tested in the downstream deformation and resampling code before end-to-end results are claimed. For an on-the-fly PyTorch stream, import `predict_rigid(slab, slab_affine, t1, t1_affine, t1_mask=...)` directly and cache predictions outside the training loop if practical.
 
-This is **numerical optimization**, not a trained neural-network inference method. The validated 1,080 saved slabs are the validation split; they must not be used for Danil's deformable-model training. The archived CNN and separate training source are provided solely for reproducibility of the previous learned baseline.
+This is **numerical optimization**, not a trained neural-network inference method. The validated 1,080 saved slabs are the validation split; they must not be used for deformable-model training. The archived CNN and separate training source are provided solely for reproducibility of the previous learned baseline.

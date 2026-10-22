@@ -40,7 +40,7 @@ def _probe_points(affine, shape, mask, target, rng, n=2048):
 
 
 def _easy_params(run: Run, rng: np.random.Generator):
-    """Curriculum start suggested by Raphael: thick slabs, small tilt/start error."""
+    """Curriculum start used for controlled training: thick slabs, small tilt/start error."""
     p = draw_params(rng, run.center, run.extent)
     cor = p['orientation'] == 'coronal'
     p['thickness'] = float(rng.uniform(48, 60))
