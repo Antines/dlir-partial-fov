@@ -8,6 +8,8 @@ checks the data, and runs the classical baselines. The best classical method on 
 **Experiment tracking, deformable stage: [W&B Report](https://wandb.ai/chetverkin-ai/dlir-deformable/reports/DLIR-partial-FOV:-deformable-stage--VmlldzoxODE2NjEyNw==)** (experiments, training curves, weights; project
 [dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable); see [Deformable stage](#deformable-stage)).
 
+**Experiment tracking, rigid stage: [W&B Report](https://forge.coreweave.com/wandb/salmanhkazim-skolkovo-institute-of-science-and-technology/neuroml-dlir/reports/DLIR-Partial-FOV-6-DOF-Rigid-Registration-Training-and-Evaluation--VmlldzoxODE2NzI5MA)** (CNN training, held-out evaluation, analysis and MRI figures; see [Rigid registration](#rigid-registration)).
+
 ## Data
 
 - **Raw data:** [HCP Young Adult](https://www.humanconnectome.org/study/hcp-young-adult), S1200 release, unprocessed 3T
@@ -58,7 +60,8 @@ checks the data, and runs the classical baselines. The best classical method on 
 ├── notebooks/dl_data_loading.ipynb         starting point for the DL part: data, training slabs, DataLoader, scoring
 ├── qc/
 │   ├── preproc/                             qc_runs.csv, qc_summary.txt, forward_check.csv, slab_types.png/.txt
-│   └── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
+│   ├── baselines/                           pilot_summary.txt, val_summary.txt, test_summary.txt
+│   └── deformable/test_summary.csv          blind test of the full chain (rigid model + deformable stage) and baselines
 └── tests/                                   unit tests: physics, inversion, transform conventions, deformable stage
 ```
 
@@ -225,6 +228,44 @@ A method's error on a slab (TRE) is the mean distance between its estimated and 
 `eval_mask`; it succeeds if TRE < 2 mm. A model is scored like the baselines by adding it to `METHODS` in
 `scripts/baselines/run_baselines.py` (returning a 4 x 4 transform or a T1 position per voxel).
 
+## Rigid registration
+
+**Task.** Estimate the 6-DOF rigid pose of a partial-FOV EPI slab relative to its subject's T1 image. The output is a 4 x 4 world-coordinate residual transform `T_rigid`, applied as `corrected_affine = T_rigid @ slab_affine`. The slab's phase-encoding axis, sign and total readout time remain unchanged.
+
+**CNN.** The spatial-fusion 3D CNN uses an EPI slab and coverage mask in one encoder, and the T1 image in a second encoder. Fused spatial features feed a six-parameter head (three rotations, three translations). The model was trained for **4,000 steps** using simulated HCP training slabs, an AdamW optimizer and geometric TRE loss. Checkpoint selection used a fixed 180-slab validation-monitoring subset. The selected checkpoint was subsequently evaluated on the full development-validation set and the held-out test set.
+
+**Numerical rigid refinement.** A separate 6-DOF coarse-to-fine optimizer uses support-masked local normalized cross-correlation to refine the scanner-header position. Its settings were fixed before final test evaluation. This is a numerical registration method, rather than a trained neural network.
+
+**Held-out test.** Both methods were evaluated on the same **59 HCP subjects (7,552 slabs)**. The TRE is the median across slabs of each slab's mean voxel-position error; a rigid-pose failure is rotation error > 2 degrees or slab-centre translation error > 2 mm.
+
+| Method | Median TRE (mm) | Rigid-pose failures | Median time per slab |
+|---|---:|---:|---|
+| Scanner header | 5.81 | 94% | — |
+| Trained rigid CNN | 5.591 | 93.96% | 0.0056 s (GPU model call) |
+| Numerical rigid refinement | **1.654** | **24.55%** | 0.570 s (GPU optimizer call) |
+| AFNI lpc+ZZ (12-DOF affine) | 1.70 | 28% | 103 s (separate baseline environment) |
+| Best rigid fit to reference truth | 1.44 | 0% | — |
+
+The CNN showed limited rotation recovery on unseen slabs. Numerical refinement reached substantially lower error, with more failures for thin slabs and slabs near the edges of the brain. The numerical median TRE was 0.046 mm below the recorded AFNI affine reference; statistical significance was not established. GPU model/optimizer-call times exclude data loading and should not be compared directly with the classical-baseline runtime.
+
+**Experiment tracking and figures:** [Rigid-stage W&B Report](https://forge.coreweave.com/wandb/salmanhkazim-skolkovo-institute-of-science-and-technology/neuroml-dlir/reports/DLIR-Partial-FOV-6-DOF-Rigid-Registration-Training-and-Evaluation--VmlldzoxODE2NzI5MA) · [CNN training run](https://forge.coreweave.com/wandb/salmanhkazim-skolkovo-institute-of-science-and-technology/neuroml-dlir/runs/f4b8r8bu) · [Held-out evaluation and MRI figures](https://forge.coreweave.com/wandb/salmanhkazim-skolkovo-institute-of-science-and-technology/neuroml-dlir/runs/vevg5zn8).
+
+**Code:** `scripts/dl/` (CNN, training, inference and evaluation), `configs/rigid_spatial_fusion_easy_v1.yaml` (CNN configuration), `configs/rigid_refine.yaml` (frozen numerical configuration), `notebooks/` (rigid validation and handoff), `tests/test_rigid_*.py` (rigid-stage tests). Additional method and result details are in `docs/rigid_stage_inference.md` and `docs/rigid_stage_results.md`.
+
+For numerical rigid inference with a slab, T1 and corresponding acquisition parameters:
+
+```bash
+python scripts/dl/predict_rigid.py \
+  --slab /path/to/slab.nii.gz \
+  --t1 /path/to/T1.nii.gz \
+  --t1-mask /path/to/T1_mask.nii.gz \
+  --params /path/to/params.json \
+  --output /path/to/rigid.txt \
+  --config configs/rigid_refine.yaml
+```
+
+The output rigid matrix is in RAS millimetres and maps the slab's current world coordinates to corrected T1-world coordinates. The test ground truth is used for evaluation, not prediction.
+
 ## Deformable stage
 Code: `scripts/deformable/`. Results: **[W&B Report](https://wandb.ai/chetverkin-ai/dlir-deformable/reports/DLIR-partial-FOV:-deformable-stage--VmlldzoxODE2NjEyNw==)**. Experiment tracking: W&B project
 [dlir-deformable](https://wandb.ai/chetverkin-ai/dlir-deformable): every experiment below with its training curves,
@@ -264,6 +305,11 @@ deformable stage alone) and, given `--rigid`, with the rigid model's transform o
 | `08_smooth_0`, `09_smooth_1` | smoothness weight 0 / 1 instead of 0.1 | 12k |
 | `10_unet_half`, `11_unet_double` | U-Net channels x0.5 / x2 (0.07 M / 1.16 M parameters) | 12k |
 | `12_rigid_noise` | in training, the T1 is resampled with a random rigid error of up to 2 mm and 2 deg | 12k |
+
+**Test** (`qc/deformable/test_summary.csv`, first section of the W&B Report). Blind test, 59 subjects, 7,552
+slabs, scored once with `score.py`: rigid model + this stage 1.12 mm median TRE and 14.0 % failures in 0.50 s per
+slab (rigid model alone 1.76 mm, 21.6 %); AFNI lpc+ZZ 1.70 mm, 28.2 % in 103 s. Network: the `00_final`
+configuration from an earlier training run (validation 0.99 mm), as built into the real-time chain.
 
 `analysis.py`: `mi-landscape` (is the slab-T1 mutual information highest at the true shift?), `rigid-sensitivity`
 (error of trained models when the rigid transform is off by 0, 1-2, 3-6 or 6-10 mm and degrees) and `examples`

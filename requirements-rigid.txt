@@ -1,0 +1,8 @@
+nibabel>=5.3
+numpy>=1.26
+scipy>=1.13
+PyYAML>=6.0
+wandb>=0.17
+matplotlib>=3.9
+pytest>=8
+# Install a CUDA-compatible PyTorch from the current runtime or pytorch.org before inference.
